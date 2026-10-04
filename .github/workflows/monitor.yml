@@ -36,11 +36,12 @@ jobs:
         run: python check_form.py
       - name: Save state
         run: |
+          cp state.json /tmp/state.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/state.json state.json
           git add state.json
-          if ! git diff --cached --quiet; then
-            git commit -m "update state [skip ci]"
-            git pull --rebase -X theirs || git rebase --abort
-            git push || echo "push skipped"
-          fi
+          git diff --cached --quiet || git commit -m "update state [skip ci]"
+          git push || echo "push skipped"
