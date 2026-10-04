@@ -1,0 +1,45 @@
+name: Naver Form Monitor
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: naver-form-monitor
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ hashFiles('requirements.txt') }}
+      - run: python -m playwright install --with-deps chromium
+      - name: Check form
+        env:
+          FORM_URL: ${{ secrets.FORM_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          CLOSED_KEYWORDS: ${{ vars.CLOSED_KEYWORDS || '종료,참여할 수 없습니다' }}
+          DISCORD_MENTION: ${{ vars.DISCORD_MENTION }}
+        run: python check_form.py
+      - name: Save state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "update state [skip ci]"
+            git pull --rebase && git push
+          fi
