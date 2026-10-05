@@ -40,9 +40,13 @@ def fetch():
             b.close()
 
 
-def send(msg):
-    requests.post(WEBHOOK_URL, json={"content": f"{MENTION} {msg}".strip(),
-                                     "username": "네이버폼 감시봇"}, timeout=15).raise_for_status()
+def send(msg, mention=True):
+    prefix = f"{MENTION} " if (mention and MENTION) else ""
+    requests.post(
+        WEBHOOK_URL,
+        json={"content": f"{prefix}{msg}".strip(), "username": "네이버폼 감시봇"},
+        timeout=15
+    ).raise_for_status()
 
 
 def main():
@@ -61,15 +65,22 @@ def main():
     if cur == "unknown":
         st["fail_count"] = st.get("fail_count", 0) + 1
         if st["fail_count"] == 3:
-            send(f"⚠️ 폼 페이지 확인 3회 연속 실패 (HTTP {code})\n{FORM_URL}")
+            send(f"⚠️ 폼 페이지 확인 3회 연속 실패 (HTTP {code})\n{FORM_URL}", mention=True)
         save_state(st)
         return
 
     st["fail_count"] = 0
+
+    # 상태 변경 분기
     if cur == "open" and prev != "open":
-        send(f"🟢 **네이버폼이 열렸습니다!** ({now_kst()})\n{FORM_URL}")
+        send(f"🟢 **네이버폼이 열렸습니다!** ({now_kst()})\n{FORM_URL}", mention=True)
     elif cur == "closed" and prev == "open":
-        send(f"🔴 네이버폼이 다시 마감되었습니다. ({now_kst()})")
+        send(f"🔴 네이버폼이 다시 마감되었습니다. ({now_kst()})", mention=True)
+    elif cur == prev:
+        # 상태 변경이 없을 때 전송 (멘션 없이 조용히 전송)
+        status_kr = "열림(접수 중)" if cur == "open" else "마감 상태 유지 중"
+        send(f"ℹ️ 변경사항이 없습니다. 현재 상태: **{status_kr}** ({now_kst()})", mention=False)
+
     if cur != prev:
         st["status"], st["changed_at"] = cur, now_kst()
     save_state(st)
